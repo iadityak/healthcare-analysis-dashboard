@@ -86,7 +86,7 @@ def preprocess_data(df):
     return df
 
 def get_chronic_conditions_data(df):
-    """Extract chronic conditions data"""
+    """Extract chronic conditions data with respondent counts"""
     chronic_conditions = [
         'Do_you_have_diagnose_h_chronic_conditions/hypertension',
         'Do_you_have_diagnose_h_chronic_conditions/diabetes',
@@ -99,15 +99,23 @@ def get_chronic_conditions_data(df):
     ]
     
     condition_data = {}
+    total_respondents = len(df)
+    
     for condition in chronic_conditions:
         if condition in df.columns:
             condition_name = condition.split('/')[-1].replace('_', ' ').title()
-            condition_data[condition_name] = df[condition].sum() if df[condition].dtype in ['int64', 'float64'] else df[condition].value_counts().get(1, 0)
+            count = df[condition].sum() if df[condition].dtype in ['int64', 'float64'] else df[condition].value_counts().get(1, 0)
+            condition_data[condition_name] = {
+                'count': count,
+                'total': total_respondents,
+                'percentage': (count / total_respondents * 100) if total_respondents > 0 else 0,
+                'label': f"{condition_name}\n({count}/{total_respondents} households)"
+            }
     
     return condition_data
 
 def get_healthcare_providers_data(df):
-    """Extract healthcare provider preference data"""
+    """Extract healthcare provider preference data with respondent counts"""
     provider_columns = [
         'where_do_you_usually_re_when_you_are_sick/government_hospital_health_post',
         'where_do_you_usually_re_when_you_are_sick/private_clinic',
@@ -118,15 +126,44 @@ def get_healthcare_providers_data(df):
     ]
     
     provider_data = {}
+    total_respondents = len(df)
+    
     for provider in provider_columns:
         if provider in df.columns:
             provider_name = provider.split('/')[-1].replace('_', ' ').title()
-            provider_data[provider_name] = df[provider].sum() if df[provider].dtype in ['int64', 'float64'] else df[provider].value_counts().get(1, 0)
+            count = df[provider].sum() if df[provider].dtype in ['int64', 'float64'] else df[provider].value_counts().get(1, 0)
+            provider_data[provider_name] = {
+                'count': count,
+                'total': total_respondents,
+                'percentage': (count / total_respondents * 100) if total_respondents > 0 else 0,
+                'label': f"{provider_name}\n({count}/{total_respondents} households)"
+            }
     
     return provider_data
 
+def get_provider_choice_reasons_data(df):
+    """Extract reasons for healthcare provider choice with respondent counts"""
+    reason_cols = [col for col in df.columns if 'What_is_the_primary_choosing_this_option' in col and '/' in col]
+    
+    reason_data = {}
+    total_respondents = len(df)
+    
+    for col in reason_cols:
+        reason_name = col.split('/')[-1].replace('_', ' ').title()
+        count = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
+        
+        if count > 0 and reason_name.lower() not in ['what is the primary choosing this option', 'nan', '']:
+            reason_data[reason_name] = {
+                'count': count,
+                'total': total_respondents,
+                'percentage': (count / total_respondents * 100) if total_respondents > 0 else 0,
+                'label': f"{reason_name}\n({count}/{total_respondents} households)"
+            }
+    
+    return reason_data
+
 def get_barriers_data(df):
-    """Extract healthcare barriers data"""
+    """Extract healthcare barriers data with respondent counts"""
     barrier_columns = [
         'What_are_the_biggest_accessing_healthcare/distance',
         'What_are_the_biggest_accessing_healthcare/cost',
@@ -136,14 +173,167 @@ def get_barriers_data(df):
     ]
     
     barrier_data = {}
+    total_respondents = len(df)
+    
     for barrier in barrier_columns:
         if barrier in df.columns:
             barrier_name = barrier.split('/')[-1].replace('_', ' ').title()
-            barrier_data[barrier_name] = df[barrier].sum() if df[barrier].dtype in ['int64', 'float64'] else df[barrier].value_counts().get(1, 0)
+            count = df[barrier].sum() if df[barrier].dtype in ['int64', 'float64'] else df[barrier].value_counts().get(1, 0)
+            barrier_data[barrier_name] = {
+                'count': count,
+                'total': total_respondents,
+                'percentage': (count / total_respondents * 100) if total_respondents > 0 else 0,
+                'label': f"{barrier_name}\n({count}/{total_respondents} households)"
+            }
     
     return barrier_data
 
+def get_preventive_services_data(df):
+    """Extract truly preventive services data (excluding treatment services)"""
+    # Define truly preventive services only
+    preventive_cols = [
+        'If_Yes_What_type/vaccination',
+        'If_Yes_What_type/regular_check_ups', 
+        'If_Yes_What_type/screening__diabetes__bp'
+    ]
+    
+    preventive_data = {}
+    total_respondents = len(df)
+    
+    for col in preventive_cols:
+        if col in df.columns:
+            service_name = col.split('/')[-1].replace('_', ' ').title()
+            count = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
+            
+            if count > 0:
+                preventive_data[service_name] = {
+                    'count': count,
+                    'total': total_respondents,
+                    'percentage': (count / total_respondents * 100) if total_respondents > 0 else 0,
+                    'label': f"{service_name}\n({count}/{total_respondents} households)"
+                }
+    
+    return preventive_data
 
+def get_child_nutrition_by_age_data(df):
+    """Extract age-appropriate child nutrition data"""
+    nutrition_data = {}
+    total_respondents = len(df)
+    
+    # Age-appropriate feeding practices
+    feeding_practices = {
+        'Exclusive Breastfeeding (0-6 months)': 'What_is_their_main_source_of_nutrition/breastfeeding',
+        'Complementary Feeding (6-24 months)': 'What_is_their_main_source_of_nutrition/homemade_food',
+        'Family Foods (>24 months)': 'What_is_their_main_source_of_nutrition/packaged_food'
+    }
+    
+    for practice_name, col in feeding_practices.items():
+        if col in df.columns:
+            count = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
+            
+            if count > 0:
+                nutrition_data[practice_name] = {
+                    'count': count,
+                    'total': total_respondents,
+                    'percentage': (count / total_respondents * 100) if total_respondents > 0 else 0,
+                    'label': f"{practice_name}\n({count}/{total_respondents} households)"
+                }
+    
+    return nutrition_data
+
+def get_dental_health_data(df):
+    """Extract dental health symptoms and behaviors data"""
+    dental_problems = [
+        'Have_you_experienced_the_past_six_months/tooth_pain_or_sensitivity',
+        'Have_you_experienced_the_past_six_months/bleeding_gums',
+        'Have_you_experienced_the_past_six_months/swollen_or_red_gums',
+        'Have_you_experienced_the_past_six_months/loose_or_missing_teeth',
+        'Have_you_experienced_the_past_six_months/bad_breath_or__halitosis',
+        'Have_you_experienced_the_past_six_months/cavities_or_tooth_decay',
+        'Have_you_experienced_the_past_six_months/mouth_sores_or_ulcers'
+    ]
+    
+    dental_data = {}
+    total_respondents = len(df)
+    
+    for problem in dental_problems:
+        if problem in df.columns:
+            problem_name = problem.split('/')[-1].replace('_', ' ').title()
+            count = df[problem].sum() if df[problem].dtype in ['int64', 'float64'] else df[problem].value_counts().get(1, 0)
+            
+            if count > 0:
+                dental_data[problem_name] = {
+                    'count': count,
+                    'total': total_respondents,
+                    'percentage': (count / total_respondents * 100) if total_respondents > 0 else 0,
+                    'label': f"{problem_name}\n({count}/{total_respondents} households)"
+                }
+    
+    return dental_data
+
+def get_demographic_cross_analysis(df, demographic_col, health_col):
+    """Perform cross-tabulation analysis between demographic and health variables"""
+    if demographic_col not in df.columns or health_col not in df.columns:
+        return pd.DataFrame()
+    
+    # Create cross-tabulation
+    cross_tab = pd.crosstab(df[demographic_col], df[health_col], margins=True)
+    
+    # Calculate percentages
+    cross_tab_pct = pd.crosstab(df[demographic_col], df[health_col], normalize='index') * 100
+    
+    return cross_tab, cross_tab_pct
+
+def get_correlation_analysis(df):
+    """Analyze correlations between key variables"""
+    # Define numeric variables for correlation
+    numeric_vars = []
+    for col in df.columns:
+        if df[col].dtype in ['int64', 'float64'] and col not in ['_id', '_index']:
+            numeric_vars.append(col)
+    
+    if len(numeric_vars) > 1:
+        correlation_matrix = df[numeric_vars].corr()
+        return correlation_matrix
+    
+    return pd.DataFrame()
+
+def analyze_others_responses(df, column_name):
+    """Analyze and categorize 'Others specify' responses"""
+    others_col = f"{column_name}_Others_Specify"
+    
+    if others_col not in df.columns:
+        return {}
+    
+    # Get all non-null responses
+    responses = df[others_col].dropna().astype(str)
+    
+    if len(responses) == 0:
+        return {}
+    
+    # Simple categorization (can be enhanced with NLP)
+    categorized_responses = {}
+    
+    for response in responses:
+        response = response.lower().strip()
+        
+        # Define categories based on common themes
+        if any(word in response for word in ['doctor', 'physician', 'specialist']):
+            category = 'Medical Professional Preference'
+        elif any(word in response for word in ['cost', 'expensive', 'money', 'price']):
+            category = 'Cost-related'
+        elif any(word in response for word in ['distance', 'far', 'travel', 'transport']):
+            category = 'Distance/Transport'
+        elif any(word in response for word in ['quality', 'service', 'facility']):
+            category = 'Service Quality'
+        elif any(word in response for word in ['traditional', 'home', 'family']):
+            category = 'Traditional/Home Care'
+        else:
+            category = 'Other Specific'
+        
+        categorized_responses[category] = categorized_responses.get(category, 0) + 1
+    
+    return categorized_responses
 
 def clean_village_name(village):
     """Clean and standardize village names"""
@@ -312,13 +502,15 @@ def main():
             df = df[df['Total_number_of_hous_ncome_monthly_Approx'] == selected_income]
     
     # Main dashboard tabs
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         "🦠 Disease Prevalence", 
         "🏥 Healthcare Access", 
         "🎯 Health Seeking Behavior", 
         "👶 Maternal & Child Health", 
         "🧠 Mental Health & Substance Use",
         "🏗️ Infrastructure Needs",
+        "🦷 Dental Health",
+        "📊 Demographic Analysis",
         "🏘️ Village-Level Analysis"
     ])
     
@@ -332,11 +524,11 @@ def main():
             chronic_conditions = get_chronic_conditions_data(df)
             if chronic_conditions:
                 fig = px.bar(
-                    x=list(chronic_conditions.keys()),
-                    y=list(chronic_conditions.values()),
-                    title="Chronic Conditions Prevalence",
+                    x=[data['label'] for data in chronic_conditions.values()],
+                    y=[data['count'] for data in chronic_conditions.values()],
+                    title=f"Chronic Conditions Prevalence (Total: {len(df)} households)",
                     labels={'x': 'Condition', 'y': 'Number of Cases'},
-                    color=list(chronic_conditions.values()),
+                    color=[data['count'] for data in chronic_conditions.values()],
                     color_continuous_scale='Reds'
                 )
                 fig.update_layout(xaxis_tickangle=-45, height=400)
@@ -347,18 +539,20 @@ def main():
             recent_health_cols = [col for col in df.columns if 'In_the_past_6_months_any_of_the_following' in col and '/' in col]
             if recent_health_cols:
                 recent_health_data = {}
+                total_respondents = len(df)
+                
                 for col in recent_health_cols:
                     condition_name = col.split('/')[-1].replace('_', ' ').title()
-                    recent_health_data[condition_name] = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
-                
-                # Filter out zero values and invalid entries
-                recent_health_data = {k: v for k, v in recent_health_data.items() if v > 0 and k.lower() not in ['in the past 6 months any of the following', 'nan', '']}
+                    count = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
+                    
+                    if count > 0 and condition_name.lower() not in ['in the past 6 months any of the following', 'nan', '']:
+                        recent_health_data[f"{condition_name}\n({count}/{total_respondents})"] = count
                 
                 if recent_health_data:
                     fig = px.pie(
                         values=list(recent_health_data.values()),
                         names=list(recent_health_data.keys()),
-                        title="Recent Health Problems (Past 6 Months)"
+                        title=f"Recent Health Problems (Past 6 Months) - Total: {len(df)} households"
                     )
                     st.plotly_chart(fig, use_container_width=True)
         
@@ -367,19 +561,21 @@ def main():
         community_health_cols = [col for col in df.columns if 'What_are_the_most_co_es_in_your_community' in col and '/' in col]
         if community_health_cols:
             community_data = {}
+            total_respondents = len(df)
+            
             for col in community_health_cols:
                 issue_name = col.split('/')[-1].replace('_', ' ').title()
-                community_data[issue_name] = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
-            
-            # Filter out zero values and invalid entries
-            community_data = {k: v for k, v in community_data.items() if v > 0 and k.lower() not in ['what are the most co es in your community', 'nan', '']}
+                count = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
+                
+                if count > 0 and issue_name.lower() not in ['what are the most co es in your community', 'nan', '']:
+                    community_data[f"{issue_name}\n({count}/{total_respondents})"] = count
             
             if community_data:
                 fig = px.bar(
                     x=list(community_data.values()),
                     y=list(community_data.keys()),
                     orientation='h',
-                    title="Most Common Community Health Issues",
+                    title=f"Most Common Community Health Issues (Total: {len(df)} households)",
                     labels={'x': 'Number of Reports', 'y': 'Health Issue'}
                 )
                 st.plotly_chart(fig, use_container_width=True)
@@ -394,11 +590,11 @@ def main():
             provider_data = get_healthcare_providers_data(df)
             if provider_data:
                 fig = px.bar(
-                    x=list(provider_data.keys()),
-                    y=list(provider_data.values()),
-                    title="Healthcare Provider Preferences",
+                    x=[data['label'] for data in provider_data.values()],
+                    y=[data['count'] for data in provider_data.values()],
+                    title=f"Healthcare Provider Preferences (Total: {len(df)} households)",
                     labels={'x': 'Provider Type', 'y': 'Number of Users'},
-                    color=list(provider_data.values()),
+                    color=[data['count'] for data in provider_data.values()],
                     color_continuous_scale='Blues'
                 )
                 fig.update_layout(xaxis_tickangle=-45, height=400)
@@ -415,20 +611,36 @@ def main():
                 )
                 st.plotly_chart(fig, use_container_width=True)
         
-        # Healthcare barriers
-        st.markdown("### Healthcare Access Barriers")
-        barriers_data = get_barriers_data(df)
-        if barriers_data:
-            fig = px.bar(
-                x=list(barriers_data.keys()),
-                y=list(barriers_data.values()),
-                title="Major Barriers to Healthcare Access",
-                labels={'x': 'Barrier Type', 'y': 'Number of Reports'},
-                color=list(barriers_data.values()),
-                color_continuous_scale='Reds'
-            )
-            fig.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
+        # Reasons for healthcare provider choice (moved from Health Seeking Behavior)
+        st.markdown("### Reasons for Healthcare Provider Choice")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            provider_reasons = get_provider_choice_reasons_data(df)
+            if provider_reasons:
+                fig = px.bar(
+                    x=[data['label'] for data in provider_reasons.values()],
+                    y=[data['count'] for data in provider_reasons.values()],
+                    title=f"Provider Choice Reasons (Total: {len(df)} households)",
+                    labels={'x': 'Reason', 'y': 'Number of Responses'}
+                )
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Healthcare barriers
+            barriers_data = get_barriers_data(df)
+            if barriers_data:
+                fig = px.bar(
+                    x=[data['label'] for data in barriers_data.values()],
+                    y=[data['count'] for data in barriers_data.values()],
+                    title=f"Healthcare Access Barriers (Total: {len(df)} households)",
+                    labels={'x': 'Barrier Type', 'y': 'Number of Reports'},
+                    color=[data['count'] for data in barriers_data.values()],
+                    color_continuous_scale='Reds'
+                )
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
     
     with tab3:
         st.markdown('<h2 class="section-header">Health Seeking Behavior</h2>', unsafe_allow_html=True)
@@ -436,46 +648,54 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            # Reasons for choosing healthcare provider
-            reason_cols = [col for col in df.columns if 'What_is_the_primary_choosing_this_option' in col and '/' in col]
-            if reason_cols:
-                reason_data = {}
-                for col in reason_cols:
-                    reason_name = col.split('/')[-1].replace('_', ' ').title()
-                    reason_data[reason_name] = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
-                
-                # Filter out zero values and invalid entries
-                reason_data = {k: v for k, v in reason_data.items() if v > 0 and k.lower() not in ['what is the primary choosing this option', 'nan', '']}
-                
-                if reason_data:
-                    fig = px.bar(
-                        x=list(reason_data.keys()),
-                        y=list(reason_data.values()),
-                        title="Reasons for Healthcare Provider Choice",
-                        labels={'x': 'Reason', 'y': 'Number of Responses'}
-                    )
-                    fig.update_layout(xaxis_tickangle=-45)
-                    st.plotly_chart(fig, use_container_width=True)
+            # Truly preventive services utilization (separated from treatment)
+            preventive_data = get_preventive_services_data(df)
+            if preventive_data:
+                fig = px.pie(
+                    values=[data['count'] for data in preventive_data.values()],
+                    names=[data['label'] for data in preventive_data.values()],
+                    title=f"Preventive Services Utilization (Total: {len(df)} households)"
+                )
+                st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            # Preventive services utilization
-            preventive_cols = [col for col in df.columns if 'If_Yes_What_type' in col and '/' in col]
-            if preventive_cols:
-                preventive_data = {}
-                for col in preventive_cols:
-                    service_name = col.split('/')[-1].replace('_', ' ').title()
-                    preventive_data[service_name] = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
+            # Healthcare expenditure analysis
+            if 'How_much_do_you_usua_d_consultation_costs' in df.columns:
+                cost_data = df['How_much_do_you_usua_d_consultation_costs'].value_counts()
+                total_cost_respondents = cost_data.sum()
                 
-                # Filter out zero values and invalid entries
-                preventive_data = {k: v for k, v in preventive_data.items() if v > 0 and k.lower() not in ['if yes what type', 'nan', '']}
+                fig = px.bar(
+                    x=cost_data.index,
+                    y=cost_data.values,
+                    title=f"Healthcare Consultation Costs ({total_cost_respondents}/{len(df)} households)",
+                    labels={'x': 'Cost Range', 'y': 'Number of Households'}
+                )
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Health information seeking behavior
+        st.markdown("### Health Information Needs")
+        info_cols = [col for col in df.columns if 'What_topics_you_like_more_information_on' in col and '/' in col]
+        if info_cols:
+            info_data = {}
+            total_respondents = len(df)
+            
+            for col in info_cols:
+                topic_name = col.split('/')[-1].replace('_', ' ').title()
+                count = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
                 
-                if preventive_data:
-                    fig = px.pie(
-                        values=list(preventive_data.values()),
-                        names=list(preventive_data.keys()),
-                        title="Preventive Services Utilization"
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                if count > 0:
+                    info_data[f"{topic_name}\n({count}/{total_respondents})"] = count
+            
+            if info_data:
+                fig = px.bar(
+                    x=list(info_data.keys()),
+                    y=list(info_data.values()),
+                    title=f"Health Information Topics of Interest (Total: {len(df)} households)",
+                    labels={'x': 'Topic', 'y': 'Number of Requests'}
+                )
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
     
     with tab4:
         st.markdown('<h2 class="section-header">Maternal & Child Health</h2>', unsafe_allow_html=True)
@@ -524,24 +744,44 @@ def main():
                     fig.update_layout(xaxis_tickangle=-45)
                     st.plotly_chart(fig, use_container_width=True)
         
-        # Child nutrition
-        st.markdown("### Child Nutrition")
-        nutrition_cols = [col for col in df.columns if 'What_is_their_main_source_of_nutrition' in col and '/' in col]
-        if nutrition_cols:
-            nutrition_data = {}
-            for col in nutrition_cols:
-                nutrition_name = col.split('/')[-1].replace('_', ' ').title()
-                nutrition_data[nutrition_name] = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
-            
-            # Filter out zero values and invalid entries
-            nutrition_data = {k: v for k, v in nutrition_data.items() if v > 0 and k.lower() not in ['what is their main source of nutrition', 'nan', '']}
-            
-            if nutrition_data:
-                fig = px.bar(
-                    x=list(nutrition_data.keys()),
-                    y=list(nutrition_data.values()),
-                    title="Main Sources of Child Nutrition",
-                    labels={'x': 'Nutrition Source', 'y': 'Number of Cases'}
+        # Age-appropriate child nutrition analysis
+        st.markdown("### Age-Appropriate Child Nutrition")
+        nutrition_data = get_child_nutrition_by_age_data(df)
+        if nutrition_data:
+            fig = px.bar(
+                x=[data['label'] for data in nutrition_data.values()],
+                y=[data['count'] for data in nutrition_data.values()],
+                title=f"Age-Appropriate Child Feeding Practices (Total: {len(df)} households)",
+                labels={'x': 'Feeding Practice', 'y': 'Number of Cases'}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Maternal health indicators
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Antenatal care utilization
+            if 'Have_you_or_any_wome_d_any_antenatal_care' in df.columns:
+                anc_data = df['Have_you_or_any_wome_d_any_antenatal_care'].value_counts()
+                total_anc_respondents = anc_data.sum()
+                
+                fig = px.pie(
+                    values=anc_data.values,
+                    names=[f"{name}\n({value}/{total_anc_respondents})" for name, value in zip(anc_data.index, anc_data.values)],
+                    title=f"Antenatal Care Utilization ({total_anc_respondents}/{len(df)} households)"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Child vaccination status
+            if 'Are_children_in_your_old_fully_vaccinated' in df.columns:
+                vacc_data = df['Are_children_in_your_old_fully_vaccinated'].value_counts()
+                total_vacc_respondents = vacc_data.sum()
+                
+                fig = px.pie(
+                    values=vacc_data.values,
+                    names=[f"{name}\n({value}/{total_vacc_respondents})" for name, value in zip(vacc_data.index, vacc_data.values)],
+                    title=f"Child Vaccination Status ({total_vacc_respondents}/{len(df)} households)"
                 )
                 st.plotly_chart(fig, use_container_width=True)
     
@@ -597,18 +837,20 @@ def main():
         improvement_cols = [col for col in df.columns if 'What_healthcare_serv_nk_needs_improvement' in col and '/' in col]
         if improvement_cols:
             improvement_data = {}
+            total_respondents = len(df)
+            
             for col in improvement_cols:
                 service_name = col.split('/')[-1].replace('_', ' ').title()
-                improvement_data[service_name] = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
-            
-            # Filter out zero values and invalid entries
-            improvement_data = {k: v for k, v in improvement_data.items() if v > 0 and k.lower() not in ['what healthcare serv nk needs improvement', 'nan', '']}
+                count = df[col].sum() if df[col].dtype in ['int64', 'float64'] else df[col].value_counts().get(1, 0)
+                
+                if count > 0:
+                    improvement_data[f"{service_name}\n({count}/{total_respondents})"] = count
             
             if improvement_data:
                 fig = px.bar(
                     x=list(improvement_data.keys()),
                     y=list(improvement_data.values()),
-                    title="Healthcare Services Needing Improvement",
+                    title=f"Healthcare Services Needing Improvement (Total: {len(df)} households)",
                     labels={'x': 'Service Type', 'y': 'Number of Requests'},
                     color=list(improvement_data.values()),
                     color_continuous_scale='Viridis'
@@ -660,6 +902,348 @@ def main():
                     st.plotly_chart(fig, use_container_width=True)
     
     with tab7:
+        st.markdown('<h2 class="section-header">Dental Health Analysis</h2>', unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Dental health problems
+            dental_data = get_dental_health_data(df)
+            if dental_data:
+                fig = px.bar(
+                    x=[data['label'] for data in dental_data.values()],
+                    y=[data['count'] for data in dental_data.values()],
+                    title=f"Dental Problems (Past 6 Months) - Total: {len(df)} households",
+                    labels={'x': 'Dental Problem', 'y': 'Number of Cases'},
+                    color=[data['count'] for data in dental_data.values()],
+                    color_continuous_scale='Oranges'
+                )
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            # Dental care behaviors
+            if 'How_often_do_you_brush_your_teeth' in df.columns:
+                brushing_data = df['How_often_do_you_brush_your_teeth'].value_counts()
+                total_brushing_respondents = brushing_data.sum()
+                
+                fig = px.pie(
+                    values=brushing_data.values,
+                    names=[f"{name}\n({value}/{total_brushing_respondents})" for name, value in zip(brushing_data.index, brushing_data.values)],
+                    title=f"Tooth Brushing Frequency ({total_brushing_respondents}/{len(df)} households)"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Last dental checkup
+        if 'When_was_your_last_dental_check_up' in df.columns:
+            checkup_data = df['When_was_your_last_dental_check_up'].value_counts()
+            total_checkup_respondents = checkup_data.sum()
+            
+            fig = px.bar(
+                x=checkup_data.index,
+                y=checkup_data.values,
+                title=f"Last Dental Checkup ({total_checkup_respondents}/{len(df)} households)",
+                labels={'x': 'Time Since Last Checkup', 'y': 'Number of Households'}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with tab8:
+        st.markdown('<h2 class="section-header">Demographic Cross-Analysis</h2>', unsafe_allow_html=True)
+        
+        # Education vs Healthcare Utilization
+        st.markdown("### Education Level vs Healthcare Provider Choice")
+        if 'Education_Level' in df.columns:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Education distribution
+                edu_data = df['Education_Level'].value_counts()
+                total_edu_respondents = edu_data.sum()
+                
+                fig = px.pie(
+                    values=edu_data.values,
+                    names=[f"{name}\n({value}/{total_edu_respondents})" for name, value in zip(edu_data.index, edu_data.values)],
+                    title=f"Education Level Distribution ({total_edu_respondents}/{len(df)} households)"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Cross-tabulation: Education vs Provider Choice
+                provider_cols = ['where_do_you_usually_re_when_you_are_sick/government_hospital_health_post',
+                               'where_do_you_usually_re_when_you_are_sick/private_clinic',
+                               'where_do_you_usually_re_when_you_are_sick/traditional_healer']
+                
+                if any(col in df.columns for col in provider_cols):
+                    # Create a simplified provider choice column
+                    df_temp = df.copy()
+                    df_temp['Primary_Provider'] = 'None'
+                    
+                    for col in provider_cols:
+                        if col in df.columns:
+                            provider_name = col.split('/')[-1].replace('_', ' ').title()
+                            mask = df_temp[col] == 1
+                            df_temp.loc[mask, 'Primary_Provider'] = provider_name
+                    
+                    # Create cross-tab
+                    cross_tab = pd.crosstab(df_temp['Education_Level'], df_temp['Primary_Provider'])
+                    
+                    fig = px.imshow(
+                        cross_tab.values,
+                        x=cross_tab.columns,
+                        y=cross_tab.index,
+                        title="Education Level vs Healthcare Provider Choice",
+                        labels={'color': 'Number of Households'},
+                        color_continuous_scale='Blues'
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # Income vs Health Outcomes
+        st.markdown("### Income Level vs Chronic Conditions")
+        if 'Total_number_of_hous_ncome_monthly_Approx' in df.columns:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Income distribution
+                income_data = df['Total_number_of_hous_ncome_monthly_Approx'].value_counts()
+                total_income_respondents = income_data.sum()
+                
+                fig = px.bar(
+                    x=income_data.index,
+                    y=income_data.values,
+                    title=f"Income Distribution ({total_income_respondents}/{len(df)} households)",
+                    labels={'x': 'Income Level', 'y': 'Number of Households'}
+                )
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Income vs Chronic Conditions
+                chronic_cols = ['Do_you_have_diagnose_h_chronic_conditions/hypertension',
+                              'Do_you_have_diagnose_h_chronic_conditions/diabetes']
+                
+                if any(col in df.columns for col in chronic_cols):
+                    df_temp = df.copy()
+                    df_temp['Has_Chronic_Condition'] = 'No'
+                    
+                    for col in chronic_cols:
+                        if col in df.columns:
+                            mask = df_temp[col] == 1
+                            df_temp.loc[mask, 'Has_Chronic_Condition'] = 'Yes'
+                    
+                    cross_tab = pd.crosstab(df_temp['Total_number_of_hous_ncome_monthly_Approx'], 
+                                          df_temp['Has_Chronic_Condition'], normalize='index') * 100
+                    
+                    fig = px.bar(
+                        x=cross_tab.index,
+                        y=cross_tab['Yes'],
+                        title="Chronic Condition Prevalence by Income Level (%)",
+                        labels={'x': 'Income Level', 'y': 'Percentage with Chronic Conditions'}
+                    )
+                    fig.update_layout(xaxis_tickangle=-45)
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        # Gender vs Healthcare Barriers
+        st.markdown("### Gender vs Healthcare Barriers")
+        if 'Gender' in df.columns:
+            barrier_cols = ['What_are_the_biggest_accessing_healthcare/distance',
+                          'What_are_the_biggest_accessing_healthcare/cost',
+                          'What_are_the_biggest_accessing_healthcare/cultural_beliefs']
+            
+            gender_barrier_data = []
+            for gender in df['Gender'].unique():
+                if pd.notna(gender):
+                    gender_df = df[df['Gender'] == gender]
+                    
+                    for barrier_col in barrier_cols:
+                        if barrier_col in df.columns:
+                            barrier_name = barrier_col.split('/')[-1].replace('_', ' ').title()
+                            count = gender_df[barrier_col].sum() if gender_df[barrier_col].dtype in ['int64', 'float64'] else gender_df[barrier_col].value_counts().get(1, 0)
+                            total = len(gender_df)
+                            
+                            gender_barrier_data.append({
+                                'Gender': gender,
+                                'Barrier': barrier_name,
+                                'Percentage': (count / total * 100) if total > 0 else 0,
+                                'Count': count,
+                                'Total': total
+                            })
+            
+            if gender_barrier_data:
+                barrier_df = pd.DataFrame(gender_barrier_data)
+                
+                fig = px.bar(
+                    barrier_df,
+                    x='Barrier',
+                    y='Percentage',
+                    color='Gender',
+                    title="Healthcare Barriers by Gender (%)",
+                    labels={'Percentage': 'Percentage Reporting Barrier'},
+                    barmode='group'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # Occupation vs Health Outcomes
+        st.markdown("### Occupation vs Health Outcomes")
+        if 'Occupation' in df.columns:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Occupation distribution
+                occ_data = df['Occupation'].value_counts()
+                total_occ_respondents = occ_data.sum()
+                
+                fig = px.pie(
+                    values=occ_data.values,
+                    names=[f"{name}\n({value}/{total_occ_respondents})" for name, value in zip(occ_data.index, occ_data.values)],
+                    title=f"Occupation Distribution ({total_occ_respondents}/{len(df)} households)"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Occupation vs Substance Use
+                substance_cols = ['Tobacco', 'Alcohol']
+                
+                if any(col in df.columns for col in substance_cols):
+                    occ_substance_data = []
+                    
+                    for occ in df['Occupation'].unique():
+                        if pd.notna(occ):
+                            occ_df = df[df['Occupation'] == occ]
+                            
+                            for substance in substance_cols:
+                                if substance in df.columns:
+                                    # Count yes responses
+                                    yes_count = 0
+                                    if occ_df[substance].dtype == 'object':
+                                        yes_count = occ_df[substance].str.contains('yes', case=False, na=False).sum()
+                                    else:
+                                        yes_count = occ_df[substance].sum()
+                                    
+                                    total = len(occ_df)
+                                    
+                                    occ_substance_data.append({
+                                        'Occupation': occ,
+                                        'Substance': substance,
+                                        'Percentage': (yes_count / total * 100) if total > 0 else 0,
+                                        'Count': yes_count,
+                                        'Total': total
+                                    })
+                    
+                    if occ_substance_data:
+                        substance_df = pd.DataFrame(occ_substance_data)
+                        
+                        fig = px.bar(
+                            substance_df,
+                            x='Occupation',
+                            y='Percentage',
+                            color='Substance',
+                            title="Substance Use by Occupation (%)",
+                            labels={'Percentage': 'Percentage Using Substance'},
+                            barmode='group'
+                        )
+                        fig.update_layout(xaxis_tickangle=-45)
+                        st.plotly_chart(fig, use_container_width=True)
+        
+        # Age Group vs Healthcare Utilization
+        st.markdown("### Age Group vs Healthcare Utilization")
+        
+        # Create age groups based on existing age data
+        if 'Basic_Demographics' in df.columns:
+            df_temp = df.copy()
+            df_temp['Age_Group'] = 'Unknown'
+            
+            # Convert age to numeric if it's a string
+            age_col = 'Basic_Demographics'
+            df_temp[age_col] = pd.to_numeric(df_temp[age_col], errors='coerce')
+            
+            # Create age groups
+            df_temp.loc[df_temp[age_col] < 18, 'Age_Group'] = 'Under 18'
+            df_temp.loc[(df_temp[age_col] >= 18) & (df_temp[age_col] < 60), 'Age_Group'] = '18-59'
+            df_temp.loc[df_temp[age_col] >= 60, 'Age_Group'] = '60+'
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Age group distribution
+                age_data = df_temp['Age_Group'].value_counts()
+                total_age_respondents = age_data.sum()
+                
+                fig = px.bar(
+                    x=age_data.index,
+                    y=age_data.values,
+                    title=f"Age Group Distribution ({total_age_respondents}/{len(df)} households)",
+                    labels={'x': 'Age Group', 'y': 'Number of Households'}
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # Age vs Healthcare Provider Choice
+                provider_cols = ['where_do_you_usually_re_when_you_are_sick/government_hospital_health_post',
+                               'where_do_you_usually_re_when_you_are_sick/traditional_healer']
+                
+                if any(col in df.columns for col in provider_cols):
+                    age_provider_data = []
+                    
+                    for age_group in df_temp['Age_Group'].unique():
+                        if age_group != 'Unknown':
+                            age_df = df_temp[df_temp['Age_Group'] == age_group]
+                            
+                            for provider_col in provider_cols:
+                                if provider_col in df.columns:
+                                    provider_name = provider_col.split('/')[-1].replace('_', ' ').title()
+                                    count = age_df[provider_col].sum() if age_df[provider_col].dtype in ['int64', 'float64'] else age_df[provider_col].value_counts().get(1, 0)
+                                    total = len(age_df)
+                                    
+                                    age_provider_data.append({
+                                        'Age_Group': age_group,
+                                        'Provider': provider_name,
+                                        'Percentage': (count / total * 100) if total > 0 else 0,
+                                        'Count': count,
+                                        'Total': total
+                                    })
+                    
+                    if age_provider_data:
+                        provider_df = pd.DataFrame(age_provider_data)
+                        
+                        fig = px.bar(
+                            provider_df,
+                            x='Age_Group',
+                            y='Percentage',
+                            color='Provider',
+                            title="Healthcare Provider Choice by Age Group (%)",
+                            labels={'Percentage': 'Percentage Using Provider'},
+                            barmode='group'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+        
+        # Others Specify Analysis
+        st.markdown("### Analysis of 'Others Specify' Responses")
+        
+        # Analyze occupation others
+        if 'Other_Specify' in df.columns:
+            occupation_others = analyze_others_responses(df, 'Occupation')
+            
+            if occupation_others:
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig = px.bar(
+                        x=list(occupation_others.keys()),
+                        y=list(occupation_others.values()),
+                        title="Categorized 'Other' Occupation Responses",
+                        labels={'x': 'Category', 'y': 'Number of Responses'}
+                    )
+                    fig.update_layout(xaxis_tickangle=-45)
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    # Display categorized responses as a table
+                    others_df = pd.DataFrame(list(occupation_others.items()), columns=['Category', 'Count'])
+                    others_df['Percentage'] = (others_df['Count'] / others_df['Count'].sum() * 100).round(1)
+                    st.markdown("**Categorized Others Responses:**")
+                    st.dataframe(others_df, use_container_width=True)
+    
+    with tab9:
         st.markdown('<h2 class="section-header">Village-Level Healthcare Analysis</h2>', unsafe_allow_html=True)
         
         # Village selector
